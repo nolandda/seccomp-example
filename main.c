@@ -16,6 +16,7 @@ void handle_sigsys(int sig)
 
 static int install_syscall_filter(int allowpid)
 {
+    static int no_new_privs_set = 0;
     struct sock_filter filter_yespid[] = {
         /* Validate architecture. */
         VALIDATE_ARCHITECTURE,
@@ -89,9 +90,12 @@ static int install_syscall_filter(int allowpid)
 
     const struct sock_fprog* progptr = (allowpid)?(&prog_yespid):(&prog_nopid);
 
-    if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-        perror("prctl(NO_NEW_PRIVS)");
-        goto failed;
+    if(!no_new_privs_set) {
+        if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
+            perror("prctl(NO_NEW_PRIVS)");
+            goto failed;
+        }
+        no_new_privs_set = 1;
     }
     if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, progptr)) {
         perror("prctl(SECCOMP)");
